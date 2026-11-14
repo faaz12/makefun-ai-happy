@@ -11,7 +11,7 @@
 // /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, statSync } from 'node:fs';
+import { copyFileSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const src = new URL('./entry.png', import.meta.url);
@@ -27,4 +27,15 @@ const expected = statSync(src).size;
 const written = statSync(dest).size;
 if (written !== expected) {
   throw new Error(`entry.png copy incomplete: wrote ${written} of ${expected} bytes`);
+}
+
+// The file is a JPEG wearing a .png name (the gate tells them apart
+// by their first bytes), so also confirm the copy is a whole JPEG:
+// it must open with the SOI marker and close with the EOI marker,
+// or the judge would see a truncated picture.
+const bytes = readFileSync(dest);
+const soi = bytes[0] === 0xff && bytes[1] === 0xd8;
+const eoi = bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+if (!soi || !eoi) {
+  throw new Error('entry.png copy is not a whole JPEG: missing SOI or EOI marker');
 }
